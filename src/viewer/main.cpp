@@ -19,6 +19,7 @@ GLFWwindow* initialize_glfw() {
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_RESIZABLE, false);
 
     glfwSetErrorCallback(handle_glfw_error);
 
@@ -26,6 +27,7 @@ GLFWwindow* initialize_glfw() {
     if (!window) {
         std::cerr << "Failed to create window!" << std::endl;
     }
+
     glfwMakeContextCurrent(window);
 
     return window;
@@ -75,7 +77,7 @@ int main(void) {
 
         glfwSwapBuffers(window);
         glfwPollEvents();
-        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS) {
+        if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS || glfwWindowShouldClose(window)) {
             running = false;
         }
 
