@@ -7,3 +7,6 @@ add_subdirectory(external/glfw)
 
 add_executable(viewer src/viewer/main.cpp)
 target_link_libraries(viewer glad glfw)
+
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/shaders/
+  DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/shaders/)
