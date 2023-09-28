@@ -12,6 +12,10 @@
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include <tiny_gltf.h>
 
+#include <glm/common.hpp>
+#include <glm/matrix.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+
 constexpr int SCREEN_WIDTH = 1280;
 constexpr int SCREEN_HEIGHT = 720;
 
@@ -85,6 +89,7 @@ bool initialize_gl()
     glDebugMessageCallback(MessageCallback, 0);
 
     glEnable(GL_DEPTH_TEST);
+    glDepthFunc(GL_LEQUAL);
 
     glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
     glClearColor(0, 0, 0, 0);
@@ -176,6 +181,8 @@ class Mesh {
 
     private:
     GLuint vao;
+    size_t vertex_count;
+    size_t indices_offset;
 
     // void set_attribute(uint32_t id, uint32_t num_components, uint32_t stride, uint32_t byte_offset) {
     //     glBindVertexArray(vao);
@@ -188,8 +195,13 @@ class Mesh {
 
     Mesh() {
         glCreateVertexArrays(1, &vao);
+        vertex_count = 0;
+        indices_offset = 0;
     }
 
+    // void set_vertex_count(size_t count) {
+    //     vertex_count = count;
+    // }
 
     void set_position_attribute(Buffer* buffer, uint32_t stride, uint32_t offset) {
         uint32_t id = 0;
@@ -207,6 +219,17 @@ class Mesh {
         glEnableVertexArrayAttrib(vao, id);
     }
 
+    void set_indices(Buffer* buffer, uint32_t count, uint32_t offset) {
+        glBindVertexArray(vao);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, buffer->get_id());
+        vertex_count = count;
+        indices_offset = offset;
+    }
+
+    // TODO: Better abstractions
+    void draw() {
+        glDrawElements(GL_TRIANGLES, vertex_count, GL_UNSIGNED_SHORT, (void*)indices_offset);
+    }
 
 };
 
@@ -265,6 +288,7 @@ std::unique_ptr<Scene> load_scene(const char* path) {
                 if (attribute == "POSITION") {
                     // assume vec3
                     mesh->set_position_attribute(buffer, stride, offset);
+                    // mesh->set_vertex_count(accessor.count);
 
                 }
                 else if (attribute == "NORMAL") {
@@ -273,7 +297,20 @@ std::unique_ptr<Scene> load_scene(const char* path) {
                 }
             }
 
+            // deal with indices
 
+            {
+                const auto & accessor = model.accessors.at(m.primitives.at(0).indices);
+                const auto offset = accessor.byteOffset + model.bufferViews.at(accessor.bufferView).byteOffset;
+                // const auto stride = model.bufferViews.at(accessor.bufferView).byteStride;
+                auto buffer = scene->buffers[model.bufferViews[accessor.bufferView].buffer].get();
+                const auto count = accessor.count;
+
+                mesh->set_indices(buffer, count, offset);
+
+            }
+
+            scene->meshes.push_back(std::move(mesh));
         
         }
 
@@ -322,6 +359,20 @@ int main(void)
     {
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+
+        // set uniforms
+        glm::mat4 model(1.0);
+        glm::mat4 view = glm::lookAt(glm::vec3(5.0, 5.0, 5.0), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
+        glm::mat4 projection = glm::perspective(45.0, 16.0/9.0, 0.1, 1000.0);
+
+        glUniformMatrix4fv(0, 1, GL_FALSE, &model[0][0]);
+        glUniformMatrix4fv(1, 1, GL_FALSE, &view[0][0]);
+        glUniformMatrix4fv(2, 1, GL_FALSE, &projection[0][0]);
+
+
+        scene->meshes.at(0)->draw();
+
 
         glfwSwapBuffers(window);
         glfwPollEvents();
