@@ -7,6 +7,11 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#define TINYGLTF_IMPLEMENTATION
+#define STB_IMAGE_IMPLEMENTATION
+#define STB_IMAGE_WRITE_IMPLEMENTATION
+#include <tiny_gltf.h>
+
 constexpr int SCREEN_WIDTH = 1280;
 constexpr int SCREEN_HEIGHT = 720;
 
@@ -143,6 +148,147 @@ public:
     GLuint fragment_shader;
 };
 
+
+
+
+class Buffer {
+
+    private:
+    GLuint id;
+
+    public:
+
+    Buffer(const std::vector<unsigned char> & data) {
+        glCreateBuffers(1, &id);
+        glBindBuffer(GL_ARRAY_BUFFER, id);
+        glBufferData(GL_ARRAY_BUFFER, data.size(), data.data(), GL_STATIC_DRAW);
+    }
+
+    uint32_t get_id() const {
+        return id;
+    }
+
+
+
+};
+
+class Mesh {
+
+    private:
+    GLuint vao;
+
+    // void set_attribute(uint32_t id, uint32_t num_components, uint32_t stride, uint32_t byte_offset) {
+    //     glBindVertexArray(vao);
+    //     glVertexAttribPointer(id, num_components, )
+    //     glEnableVertexArrayAttrib(vao, id);
+
+    // }
+
+    public:
+
+    Mesh() {
+        glCreateVertexArrays(1, &vao);
+    }
+
+
+    void set_position_attribute(Buffer* buffer, uint32_t stride, uint32_t offset) {
+        uint32_t id = 0;
+        glBindVertexArray(vao);
+        glBindBuffer(GL_ARRAY_BUFFER, buffer->get_id());
+        glVertexAttribPointer(id, 3, GL_FLOAT, GL_FALSE, stride, (void*)offset);
+        glEnableVertexArrayAttrib(vao, id);
+    }
+
+    void set_normal_attribute(Buffer* buffer, uint32_t stride, uint32_t offset) {
+        uint32_t id = 1;
+        glBindVertexArray(vao);
+        glBindBuffer(GL_ARRAY_BUFFER, buffer->get_id());
+        glVertexAttribPointer(id, 3, GL_FLOAT, GL_FALSE, stride, (void*)offset);
+        glEnableVertexArrayAttrib(vao, id);
+    }
+
+
+};
+
+class Scene {
+    
+    public:
+
+    std::vector<std::unique_ptr<Mesh>> meshes;
+    std::vector<std::unique_ptr<Buffer>> buffers;
+};
+
+std::unique_ptr<Scene> load_scene(const char* path) {    
+    tinygltf::TinyGLTF loader;
+    tinygltf::Model model;
+    std::string err, warn;
+    
+    auto success = loader.LoadASCIIFromFile(&model, &err, &warn, path);
+    
+    if (!warn.empty()) {
+        std::cerr << "TinyGLTF Warning: " << warn << std::endl;
+    }
+    
+    if (!err.empty()) {
+        std::cerr << "TinyGLTF Error: " << err << std::endl;
+    }
+
+    if (success) {
+
+        // handle the default scene only
+        const auto & s = model.scenes.at(model.defaultScene);
+        auto scene = std::make_unique<Scene>();
+
+        // create the buffers
+        for (const auto & b: model.buffers) {
+            auto buffer = std::make_unique<Buffer>(b.data);
+            scene->buffers.push_back(std::move(buffer));
+        }
+        // model.buffers
+
+
+        // prepare data for all meshes
+        for (const auto & m: model.meshes) {
+            auto mesh = std::make_unique<Mesh>();
+
+            // just assume triangles rendering mode and only one primitive
+            // create all attributes
+            // just deal with position and normals for now
+
+            for (const auto & [attribute, accessor_idx]: m.primitives.at(0).attributes) {
+                // for each attribute, we need offset, type, normalized, and stride
+                const auto & accessor = model.accessors.at(accessor_idx);
+                const auto offset = accessor.byteOffset + model.bufferViews.at(accessor.bufferView).byteOffset;
+                const auto stride = model.bufferViews.at(accessor.bufferView).byteStride;
+                auto buffer = scene->buffers[model.bufferViews[accessor.bufferView].buffer].get();
+                // assume normalized is false
+                if (attribute == "POSITION") {
+                    // assume vec3
+                    mesh->set_position_attribute(buffer, stride, offset);
+
+                }
+                else if (attribute == "NORMAL") {
+                    // assume vec3
+                    mesh->set_normal_attribute(buffer, stride, offset);
+                }
+            }
+
+
+        
+        }
+
+
+        return scene;
+
+    }
+
+    std::cerr << "Failed to load GLTF model!" << std::endl;
+
+    return nullptr;
+}
+
+
+
 int main(void)
 {
 
@@ -168,6 +314,8 @@ int main(void)
     }
 
     glUseProgram(prog.program);
+
+    auto scene = load_scene("../../models/Cube/Cube.gltf");
 
     bool running = true;
     while (running)
