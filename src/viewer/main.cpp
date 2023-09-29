@@ -343,7 +343,7 @@ int main(void)
         return -1;
     }
 
-    auto prog = ShaderProgram("../shaders/shader.vert.glsl", "../shaders/shader.frag.glsl");
+    auto prog = ShaderProgram("../../shaders/shader.vert.glsl", "../../shaders/shader.frag.glsl");
     if (!prog.is_valid())
     {
         std::cerr << "Shader program creation failed!" << std::endl;
@@ -363,12 +363,14 @@ int main(void)
 
         // set uniforms
         glm::mat4 model(1.0);
-        glm::mat4 view = glm::lookAt(glm::vec3(5.0, 5.0, 5.0), glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
+        const glm::vec3 view_pos = glm::vec3(5.0, 5.0, 5.0);
+        glm::mat4 view = glm::lookAt(view_pos, glm::vec3(0.0), glm::vec3(0.0, 1.0, 0.0));
         glm::mat4 projection = glm::perspective(45.0, 16.0/9.0, 0.1, 1000.0);
 
         glUniformMatrix4fv(0, 1, GL_FALSE, &model[0][0]);
         glUniformMatrix4fv(1, 1, GL_FALSE, &view[0][0]);
         glUniformMatrix4fv(2, 1, GL_FALSE, &projection[0][0]);
+        glUniform3fv(3, 1, &view_pos[0]);
 
 
         scene->meshes.at(0)->draw();
